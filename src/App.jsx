@@ -2,25 +2,29 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Home, Dumbbell, PlusCircle, History, Settings, Save, Trash2, Download, 
   Upload, ChevronRight, Activity, CheckCircle, X, ChevronUp, ChevronDown, 
-  Copy, Calendar, Timer, Play, Pause, RefreshCw, Share2, Clock, List
+  Copy, Calendar, Timer, Play, Pause, RefreshCw, Share2, Clock, List, Edit3,
+  Wind, ArrowUp, ArrowDown, Minus
 } from 'lucide-react';
 
-// --- Expanded & Grouped Exercise Database (Fix #2) ---
+// --- Expanded & Grouped Exercise Database ---
 const EXERCISE_DB = [
-  { id: 'c1', name: 'Barbell Bench Press', group: 'Chest' },
-  { id: 'c2', name: 'Incline Dumbbell Press', group: 'Chest' },
-  { id: 'c3', name: 'Chest Flys', group: 'Chest' },
-  { id: 'b1', name: 'Pull-ups', group: 'Back' },
-  { id: 'b2', name: 'Barbell Row', group: 'Back' },
-  { id: 'b3', name: 'Lat Pulldown', group: 'Back' },
-  { id: 'l1', name: 'Barbell Squat', group: 'Legs' },
-  { id: 'l2', name: 'Leg Press', group: 'Legs' },
-  { id: 'l3', name: 'Leg Extension', group: 'Legs' },
-  { id: 's1', name: 'Overhead Press', group: 'Shoulders' },
-  { id: 's2', name: 'Lateral Raise', group: 'Shoulders' },
-  { id: 'a1', name: 'Bicep Curl', group: 'Arms' },
-  { id: 'a2', name: 'Tricep Extension', group: 'Arms' },
-  { id: 'core1', name: 'Plank', group: 'Core' },
+  { id: 'c1', name: 'Barbell Bench Press', group: 'Chest', type: 'strength' },
+  { id: 'c2', name: 'Incline Dumbbell Press', group: 'Chest', type: 'strength' },
+  { id: 'c3', name: 'Chest Flys', group: 'Chest', type: 'strength' },
+  { id: 'b1', name: 'Pull-ups', group: 'Back', type: 'strength' },
+  { id: 'b2', name: 'Barbell Row', group: 'Back', type: 'strength' },
+  { id: 'b3', name: 'Lat Pulldown', group: 'Back', type: 'strength' },
+  { id: 'l1', name: 'Barbell Squat', group: 'Legs', type: 'strength' },
+  { id: 'l2', name: 'Leg Press', group: 'Legs', type: 'strength' },
+  { id: 'l3', name: 'Leg Extension', group: 'Legs', type: 'strength' },
+  { id: 's1', name: 'Overhead Press', group: 'Shoulders', type: 'strength' },
+  { id: 's2', name: 'Lateral Raise', group: 'Shoulders', type: 'strength' },
+  { id: 'a1', name: 'Bicep Curl', group: 'Arms', type: 'strength' },
+  { id: 'a2', name: 'Tricep Extension', group: 'Arms', type: 'strength' },
+  { id: 'core1', name: 'Plank', group: 'Core', type: 'strength' },
+  { id: 'cardio1', name: 'Treadmill', group: 'Cardio', type: 'cardio' },
+  { id: 'cardio2', name: 'Cycling', group: 'Cardio', type: 'cardio' },
+  { id: 'cardio3', name: 'Rowing Machine', group: 'Cardio', type: 'cardio' },
 ];
 
 const DEFAULT_WORKOUTS = [
@@ -28,7 +32,7 @@ const DEFAULT_WORKOUTS = [
   { id: 'def_pull', name: 'Pull Day', exerciseIds: ['b1', 'b2'] },
 ];
 
-export default function GymTrackerPro() {
+export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [workouts, setWorkouts] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -66,7 +70,7 @@ export default function GymTrackerPro() {
   }, [workouts, logs, customExercises, activeSession, sessionStartTime]);
 
   const allExercises = useMemo(() => [...EXERCISE_DB, ...customExercises], [customExercises]);
-  const getExName = (id) => allExercises.find(e => e.id === id)?.name || 'Unknown Exercise';
+  const getExData = (id) => allExercises.find(e => e.id === id) || { name: 'Unknown', type: 'strength' };
 
   const formatTime = (seconds) => {
     const hrs = Math.floor(seconds / 3600);
@@ -75,8 +79,7 @@ export default function GymTrackerPro() {
     return `${hrs > 0 ? hrs + ':' : ''}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // --- UI Component: Improved Rest Timer (Fix #4) ---
-  // Memoized to prevent reset on parent state changes
+  // --- UI Component: Rest Timer ---
   const RestTimer = React.memo(() => {
     const [timeLeft, setTimeLeft] = useState(120);
     const [isActive, setIsActive] = useState(false);
@@ -112,7 +115,7 @@ export default function GymTrackerPro() {
     );
   });
 
-  // --- Main View: Activity ---
+  // --- Activity View ---
   const ActivityView = () => (
     <div className="p-4 space-y-4 pb-24">
       <h1 className="text-2xl font-black text-slate-800">History</h1>
@@ -135,9 +138,10 @@ export default function GymTrackerPro() {
     </div>
   );
 
-  // --- Main View: Workout Templates (Fix #1 & #2) ---
+  // --- Template View ---
   const TemplateView = () => {
     const [isBuilding, setIsBuilding] = useState(false);
+    const [editId, setEditId] = useState(null); 
     const [tempName, setTempName] = useState('');
     const [tempExercises, setTempExercises] = useState([]);
     const [isBulk, setIsBulk] = useState(false);
@@ -151,28 +155,45 @@ export default function GymTrackerPro() {
       }, {});
     }, [allExercises]);
 
-    const handleBulkAdd = () => {
+    const handleEdit = (workout) => {
+      setEditId(workout.id);
+      setTempName(workout.name);
+      setTempExercises(workout.exerciseIds);
+      setIsBuilding(true);
+    };
+
+    const handleBulkAdd = (type = 'strength') => {
       const lines = bulkText.split('\n').filter(l => l.trim());
       const newCustom = lines.map(l => ({ 
         id: 'c_'+Math.random().toString(36).substr(2,9), 
         name: l.trim(), 
-        group: 'Custom' 
+        group: type === 'cardio' ? 'Cardio' : 'Custom',
+        type: type
       }));
       setCustomExercises(prev => [...prev, ...newCustom]);
       setBulkText('');
       setIsBulk(false);
-      // Logic Fix #1: Note we do NOT setIsBuilding(false), so the user stays in the flow.
+    };
+
+    const saveTemplate = () => {
+      if (editId) {
+        setWorkouts(workouts.map(w => w.id === editId ? { ...w, name: tempName, exerciseIds: tempExercises } : w));
+      } else {
+        setWorkouts([...workouts, { id: Date.now().toString(), name: tempName || 'New Workout', exerciseIds: tempExercises }]);
+      }
+      setIsBuilding(false);
+      setEditId(null);
     };
 
     if (isBuilding) return (
       <div className="p-4 space-y-4 pb-24">
         <div className="flex justify-between items-center">
-          <h2 className="font-black text-xl">Build Workout</h2>
-          <button onClick={() => setIsBuilding(false)} className="p-2 bg-slate-100 rounded-full"><X size={20}/></button>
+          <h2 className="font-black text-xl">{editId ? 'Edit Template' : 'Build Workout'}</h2>
+          <button onClick={() => { setIsBuilding(false); setEditId(null); }} className="p-2 bg-slate-100 rounded-full"><X size={20}/></button>
         </div>
         <input 
           placeholder="Workout Name" value={tempName} onChange={e => setTempName(e.target.value)}
-          className="w-full p-4 bg-white border border-slate-200 rounded-2xl shadow-sm outline-none"
+          className="w-full p-4 bg-white border border-slate-200 rounded-2xl shadow-sm outline-none focus:ring-2 ring-blue-500"
         />
         
         <div className="bg-white border rounded-2xl p-2 max-h-[50vh] overflow-y-auto">
@@ -193,23 +214,30 @@ export default function GymTrackerPro() {
           ))}
         </div>
 
-        <button onClick={() => setIsBulk(true)} className="w-full py-3 border-2 border-dashed border-blue-200 text-blue-600 rounded-2xl text-sm font-bold">+ Create Custom Exercises</button>
-        <button onClick={() => {
-            setWorkouts([...workouts, { id: Date.now().toString(), name: tempName || 'New Workout', exerciseIds: tempExercises }]);
-            setIsBuilding(false);
-        }} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg">Save Template</button>
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={() => setIsBulk('strength')} className="py-3 border-2 border-dashed border-blue-200 text-blue-600 rounded-2xl text-[10px] font-bold uppercase tracking-tighter flex flex-col items-center gap-1">
+            <Dumbbell size={16}/> + Strength Exercises
+          </button>
+          <button onClick={() => setIsBulk('cardio')} className="py-3 border-2 border-dashed border-emerald-200 text-emerald-600 rounded-2xl text-[10px] font-bold uppercase tracking-tighter flex flex-col items-center gap-1">
+            <Wind size={16}/> + Cardio Exercises
+          </button>
+        </div>
+
+        <button onClick={saveTemplate} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg">
+          {editId ? 'Save Changes' : 'Save Template'}
+        </button>
 
         {isBulk && (
           <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-6 backdrop-blur-sm">
-            <div className="bg-white w-full rounded-3xl p-6 space-y-4">
-              <h3 className="font-bold text-lg text-slate-800">Bulk Create Exercises</h3>
-              <p className="text-xs text-slate-500">Enter one exercise name per line</p>
+            <div className="bg-white w-full rounded-3xl p-6 space-y-4 shadow-xl">
+              <h3 className="font-bold text-lg text-slate-800 text-center">Bulk Create {isBulk === 'cardio' ? 'Cardio' : 'Strength'}</h3>
               <textarea 
                 className="w-full h-40 p-4 border rounded-2xl bg-slate-50 outline-none" 
+                placeholder={isBulk === 'cardio' ? "Running\nWalking\nHIIT" : "Push Ups\nPull Ups\nDips"}
                 value={bulkText} onChange={e => setBulkText(e.target.value)}
               />
               <div className="flex gap-2">
-                <button onClick={handleBulkAdd} className="flex-1 bg-blue-600 text-white py-3 rounded-2xl font-bold">Add to List</button>
+                <button onClick={() => handleBulkAdd(isBulk)} className="flex-1 bg-blue-600 text-white py-3 rounded-2xl font-bold">Add to List</button>
                 <button onClick={() => setIsBulk(false)} className="flex-1 bg-slate-100 py-3 rounded-2xl font-bold">Cancel</button>
               </div>
             </div>
@@ -224,28 +252,33 @@ export default function GymTrackerPro() {
         <div className="space-y-3">
           {workouts.map(w => (
             <div key={w.id} className="bg-white p-5 rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm">
-              <div>
+              <div className="flex-1">
                 <h3 className="font-bold text-slate-800">{w.name}</h3>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{w.exerciseIds.length} Exercises</p>
               </div>
-              <button onClick={() => setWorkouts(workouts.filter(x => x.id !== w.id))} className="text-red-300 hover:text-red-500"><Trash2 size={18}/></button>
+              <div className="flex items-center gap-3">
+                <button onClick={() => handleEdit(w)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors">
+                  <Edit3 size={18}/>
+                </button>
+                <button onClick={() => setWorkouts(workouts.filter(x => x.id !== w.id))} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                  <Trash2 size={18}/>
+                </button>
+              </div>
             </div>
           ))}
         </div>
-        <button onClick={() => { setIsBuilding(true); setTempExercises([]); setTempName(''); }} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg">+ New Template</button>
+        <button onClick={() => { setIsBuilding(true); setTempExercises([]); setTempName(''); setEditId(null); }} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg">+ New Template</button>
       </div>
     );
   };
 
-  // --- Session Engine (Fix #3 & #5) ---
+  // --- Session Engine ---
   const SessionView = () => {
     const [elapsed, setElapsed] = useState(0);
     const [showExPicker, setShowExPicker] = useState(false);
 
-    // Persistent Timer Fix (#5)
     useEffect(() => {
       if (!activeSession || !sessionStartTime) return;
-      
       const itv = setInterval(() => {
         const secondsSinceStart = Math.floor((Date.now() - sessionStartTime) / 1000);
         setElapsed(secondsSinceStart);
@@ -261,7 +294,11 @@ export default function GymTrackerPro() {
         date: new Date().toISOString().split('T')[0],
         exerciseOrder: [...w.exerciseIds],
         data: w.exerciseIds.reduce((acc, id) => {
-          acc[id] = [{ weight: '0', reps: '10' }];
+          const ex = getExData(id);
+          const isCardio = ex.type === 'cardio';
+          acc[id] = Array(3).fill(0).map(() => (
+            isCardio ? { time: '10:00', dist: '1.0' } : { weight: '0', reps: '10' }
+          ));
           return acc;
         }, {})
       });
@@ -273,6 +310,33 @@ export default function GymTrackerPro() {
       const newData = { ...activeSession.data };
       newData[exId][sIdx][field] = val;
       setActiveSession({ ...activeSession, data: newData });
+    };
+
+    const addSet = (exId) => {
+      const ex = getExData(exId);
+      const isCardio = ex.type === 'cardio';
+      const newData = {...activeSession.data};
+      newData[exId].push(isCardio ? { time: '10:00', dist: '1.0' } : { weight: '0', reps: '10' });
+      setActiveSession({...activeSession, data: newData});
+    };
+
+    const removeSet = (exId, sIdx) => {
+      const newData = {...activeSession.data};
+      newData[exId] = newData[exId].filter((_, i) => i !== sIdx);
+      if (newData[exId].length === 0) {
+        // If last set is removed, maybe we should keep a placeholder or remove ex?
+        // Let's keep at least one empty set or handle empty gracefully.
+        newData[exId] = [getExData(exId).type === 'cardio' ? { time: '0:00', dist: '0' } : { weight: '0', reps: '0' }];
+      }
+      setActiveSession({...activeSession, data: newData});
+    };
+
+    const moveExercise = (index, direction) => {
+      const newOrder = [...activeSession.exerciseOrder];
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= newOrder.length) return;
+      [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
+      setActiveSession({...activeSession, exerciseOrder: newOrder});
     };
 
     if (activeSession) return (
@@ -289,44 +353,88 @@ export default function GymTrackerPro() {
 
         <RestTimer />
 
-        {activeSession.exerciseOrder.map((exId, idx) => (
-          <div key={`${exId}-${idx}`} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-4">
-            <div className="p-3 bg-slate-50 border-b flex justify-between items-center">
-              <span className="font-bold text-sm text-slate-700">{getExName(exId)}</span>
-              <button onClick={() => {
-                const newOrder = activeSession.exerciseOrder.filter((_, i) => i !== idx);
-                setActiveSession({...activeSession, exerciseOrder: newOrder});
-              }} className="text-slate-300 hover:text-red-500"><Trash2 size={16}/></button>
-            </div>
-            <div className="p-4 space-y-3">
-              {activeSession.data[exId].map((set, sIdx) => (
-                <div key={sIdx} className="flex items-center gap-3">
-                  <span className="text-[10px] font-black text-slate-300 w-4">{sIdx+1}</span>
-                  <div className="flex-1 grid grid-cols-2 gap-2">
-                    {/* INPUT FIX (#3): We use defaultValue + onBlur or local state to prevent jumping */}
-                    <SetInput 
-                      value={set.weight} 
-                      label="kg" 
-                      onUpdate={(val) => updateSet(exId, sIdx, 'weight', val)} 
-                    />
-                    <SetInput 
-                      value={set.reps} 
-                      label="reps" 
-                      onUpdate={(val) => updateSet(exId, sIdx, 'reps', val)} 
-                    />
+        {activeSession.exerciseOrder.map((exId, idx) => {
+          const ex = getExData(exId);
+          const isCardio = ex.type === 'cardio';
+
+          return (
+            <div key={`${exId}-${idx}`} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+              <div className="p-3 bg-slate-50 border-b flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-col">
+                    <button 
+                      onClick={() => moveExercise(idx, -1)} 
+                      disabled={idx === 0}
+                      className={`p-0.5 ${idx === 0 ? 'text-slate-200' : 'text-slate-400 hover:text-blue-500'}`}
+                    >
+                      <ChevronUp size={14}/>
+                    </button>
+                    <button 
+                      onClick={() => moveExercise(idx, 1)} 
+                      disabled={idx === activeSession.exerciseOrder.length - 1}
+                      className={`p-0.5 ${idx === activeSession.exerciseOrder.length - 1 ? 'text-slate-200' : 'text-slate-400 hover:text-blue-500'}`}
+                    >
+                      <ChevronDown size={14}/>
+                    </button>
                   </div>
+                  {isCardio ? <Wind size={16} className="text-emerald-500" /> : <Dumbbell size={16} className="text-blue-500" />}
+                  <span className="font-bold text-sm text-slate-700">{ex.name}</span>
                 </div>
-              ))}
-              <button onClick={() => {
-                const d = {...activeSession.data}; d[exId].push({weight:'0', reps:'10'}); setActiveSession({...activeSession, data: d});
-              }} className="w-full py-2 text-xs font-bold text-blue-600 bg-blue-50 rounded-xl">+ Add Set</button>
+                <button onClick={() => {
+                  const newOrder = activeSession.exerciseOrder.filter((_, i) => i !== idx);
+                  setActiveSession({...activeSession, exerciseOrder: newOrder});
+                }} className="text-slate-300 hover:text-red-500 p-1"><Trash2 size={16}/></button>
+              </div>
+              <div className="p-4 space-y-3">
+                {activeSession.data[exId].map((set, sIdx) => (
+                  <div key={sIdx} className="flex items-center gap-3">
+                    <span className="text-[10px] font-black text-slate-300 w-4">{sIdx+1}</span>
+                    <div className="flex-1 grid grid-cols-2 gap-2">
+                      {isCardio ? (
+                        <>
+                          <SetInput 
+                            value={set.time} 
+                            label="min" 
+                            onUpdate={(val) => updateSet(exId, sIdx, 'time', val)} 
+                            type="text"
+                          />
+                          <SetInput 
+                            value={set.dist} 
+                            label="km" 
+                            onUpdate={(val) => updateSet(exId, sIdx, 'dist', val)} 
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <SetInput 
+                            value={set.weight} 
+                            label="kg" 
+                            onUpdate={(val) => updateSet(exId, sIdx, 'weight', val)} 
+                          />
+                          <SetInput 
+                            value={set.reps} 
+                            label="reps" 
+                            onUpdate={(val) => updateSet(exId, sIdx, 'reps', val)} 
+                          />
+                        </>
+                      )}
+                    </div>
+                    <button 
+                      onClick={() => removeSet(exId, sIdx)}
+                      className="p-1.5 text-slate-300 hover:text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Minus size={14}/>
+                    </button>
+                  </div>
+                ))}
+                <button onClick={() => addSet(exId)} className="w-full py-2 text-xs font-bold text-blue-600 bg-blue-50 rounded-xl">+ Add Set</button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         <button onClick={() => setShowExPicker(true)} className="w-full py-5 border-2 border-dashed border-slate-300 text-slate-400 rounded-2xl font-bold">+ Add Exercise</button>
 
-        {/* Finish Modal logic remains similar but clear sessionStartTime on finish */}
         {modal.show && (
             <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-6 backdrop-blur-sm">
                 <div className="bg-white w-full rounded-3xl p-6 space-y-4">
@@ -348,11 +456,14 @@ export default function GymTrackerPro() {
 
     return (
       <div className="p-4 space-y-4 pb-24">
-        <h1 className="text-2xl font-black text-slate-800">Start Workout</h1>
+        <h1 className="text-2xl font-black text-slate-800">Start Training</h1>
         <div className="space-y-3">
           {workouts.map(w => (
-            <button key={w.id} onClick={() => startWorkout(w)} className="w-full bg-white p-6 rounded-3xl border border-slate-100 flex justify-between items-center shadow-sm">
-              <span className="font-bold text-slate-800 text-lg">{w.name}</span>
+            <button key={w.id} onClick={() => startWorkout(w)} className="w-full bg-white p-6 rounded-3xl border border-slate-100 flex justify-between items-center shadow-sm text-left active:scale-[0.98] transition-transform">
+              <div>
+                <span className="font-bold text-slate-800 text-lg block">{w.name}</span>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{w.exerciseIds.length} Exercises</span>
+              </div>
               <PlusCircle className="text-blue-600" size={28} />
             </button>
           ))}
@@ -361,7 +472,7 @@ export default function GymTrackerPro() {
     );
   };
 
-  // --- Settings Fix (#6) ---
+  // --- Settings View ---
   const SettingsView = () => (
     <div className="p-4 space-y-6 pb-24">
       <h1 className="text-2xl font-black text-slate-800">Settings</h1>
@@ -415,17 +526,16 @@ export default function GymTrackerPro() {
   );
 }
 
-// --- Helper Component to fix the Jumping Input Focus (#3) ---
-function SetInput({ value, label, onUpdate }) {
+// --- Helper Component to fix the Jumping Input Focus ---
+function SetInput({ value, label, onUpdate, type = "number" }) {
   const [localVal, setLocalVal] = useState(value);
-
-  // Sync with prop if it changes externally
   useEffect(() => { setLocalVal(value); }, [value]);
 
   return (
-    <div className="flex items-center bg-slate-50 rounded-xl px-3 border border-slate-100">
+    <div className="flex items-center bg-slate-50 rounded-xl px-3 border border-slate-100 flex-1">
       <input 
-        type="number" 
+        type={type} 
+        inputMode={type === "number" ? "decimal" : "text"}
         value={localVal} 
         onChange={(e) => setLocalVal(e.target.value)}
         onBlur={() => onUpdate(localVal)} 
