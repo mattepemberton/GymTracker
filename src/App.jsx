@@ -3,7 +3,7 @@ import {
   Home, Dumbbell, PlusCircle, History, Settings, Save, Trash2, Download, 
   Upload, ChevronRight, Activity, CheckCircle, X, ChevronUp, ChevronDown, 
   Copy, Calendar, Timer, Play, Pause, RefreshCw, Share2, Clock, List, Edit3,
-  Wind, ArrowUp, ArrowDown, Minus
+  Wind, ArrowUp, ArrowDown, Minus, Rocket
 } from 'lucide-react';
 
 // --- Expanded & Grouped Exercise Database ---
@@ -40,6 +40,7 @@ export default function App() {
   const [activeSession, setActiveSession] = useState(null);
   const [sessionStartTime, setSessionStartTime] = useState(null);
   const [modal, setModal] = useState({ show: false, type: '', data: null });
+  const [previewWorkout, setPreviewWorkout] = useState(null);
 
   // --- Persistence Logic ---
   useEffect(() => {
@@ -79,6 +80,27 @@ export default function App() {
     return `${hrs > 0 ? hrs + ':' : ''}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // --- Session Engine Logic ---
+  const startWorkoutSession = (w) => {
+    const now = Date.now();
+    setActiveSession({
+      templateId: w.id,
+      name: w.name,
+      date: new Date().toISOString().split('T')[0],
+      exerciseOrder: [...w.exerciseIds],
+      data: w.exerciseIds.reduce((acc, id) => {
+        const ex = getExData(id);
+        const isCardio = ex.type === 'cardio';
+        acc[id] = Array(3).fill(0).map(() => (
+          isCardio ? { time: '10:00', dist: '1.0' } : { weight: '0', reps: '10' }
+        ));
+        return acc;
+      }, {})
+    });
+    setSessionStartTime(now);
+    setPreviewWorkout(null);
+  };
+
   // --- UI Component: Rest Timer ---
   const RestTimer = React.memo(() => {
     const [timeLeft, setTimeLeft] = useState(120);
@@ -96,7 +118,7 @@ export default function App() {
     }, [isActive, timeLeft]);
 
     return (
-      <div className="bg-slate-900 text-white p-3 rounded-2xl flex items-center justify-between mb-4 border border-slate-700">
+      <div className="bg-slate-900 text-white p-3 rounded-2xl flex items-center justify-between mb-4 border border-slate-700 shadow-lg">
         <div className="flex items-center gap-3">
           <Timer size={18} className="text-blue-400" />
           <span className="font-mono text-xl font-bold">{Math.floor(timeLeft/60)}:{(timeLeft%60).toString().padStart(2, '0')}</span>
@@ -107,9 +129,9 @@ export default function App() {
             onChange={e => setInputVal(parseInt(e.target.value) || 0)}
             className="w-12 bg-slate-800 rounded px-1 text-center text-xs border border-slate-600"
           />
-          <button onClick={() => {setTimeLeft(inputVal); setIsActive(true)}} className="p-1.5 bg-blue-600 rounded-lg"><Play size={14}/></button>
-          <button onClick={() => setIsActive(false)} className="p-1.5 bg-slate-700 rounded-lg"><Pause size={14}/></button>
-          <button onClick={() => {setTimeLeft(inputVal); setIsActive(false)}} className="p-1.5 bg-slate-700 rounded-lg"><RefreshCw size={14}/></button>
+          <button onClick={() => {setTimeLeft(inputVal); setIsActive(true)}} className="p-1.5 bg-blue-600 rounded-lg shadow-sm active:scale-95 transition-transform"><Play size={14}/></button>
+          <button onClick={() => setIsActive(false)} className="p-1.5 bg-slate-700 rounded-lg active:scale-95 transition-transform"><Pause size={14}/></button>
+          <button onClick={() => {setTimeLeft(inputVal); setIsActive(false)}} className="p-1.5 bg-slate-700 rounded-lg active:scale-95 transition-transform"><RefreshCw size={14}/></button>
         </div>
       </div>
     );
@@ -120,7 +142,10 @@ export default function App() {
     <div className="p-4 space-y-4 pb-24">
       <h1 className="text-2xl font-black text-slate-800">History</h1>
       {logs.length === 0 ? (
-        <div className="text-center py-20 text-slate-400">No records found.</div>
+        <div className="text-center py-20 text-slate-400 flex flex-col items-center gap-2">
+            <History size={48} className="opacity-20" />
+            <p>No records found.</p>
+        </div>
       ) : (
         [...logs].reverse().map(log => (
           <div key={log.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
@@ -223,7 +248,7 @@ export default function App() {
           </button>
         </div>
 
-        <button onClick={saveTemplate} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg">
+        <button onClick={saveTemplate} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 active:scale-95 transition-transform">
           {editId ? 'Save Changes' : 'Save Template'}
         </button>
 
@@ -238,7 +263,7 @@ export default function App() {
               />
               <div className="flex gap-2">
                 <button onClick={() => handleBulkAdd(isBulk)} className="flex-1 bg-blue-600 text-white py-3 rounded-2xl font-bold">Add to List</button>
-                <button onClick={() => setIsBulk(false)} className="flex-1 bg-slate-100 py-3 rounded-2xl font-bold">Cancel</button>
+                <button onClick={() => setIsBulk(false)} className="flex-1 bg-slate-100 py-3 rounded-2xl font-bold text-slate-600">Cancel</button>
               </div>
             </div>
           </div>
@@ -267,7 +292,7 @@ export default function App() {
             </div>
           ))}
         </div>
-        <button onClick={() => { setIsBuilding(true); setTempExercises([]); setTempName(''); setEditId(null); }} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg">+ New Template</button>
+        <button onClick={() => { setIsBuilding(true); setTempExercises([]); setTempName(''); setEditId(null); }} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-100 active:scale-95 transition-transform">+ New Template</button>
       </div>
     );
   };
@@ -285,26 +310,6 @@ export default function App() {
       }, 1000);
       return () => clearInterval(itv);
     }, [activeSession, sessionStartTime]);
-
-    const startWorkout = (w) => {
-      const now = Date.now();
-      setActiveSession({
-        templateId: w.id,
-        name: w.name,
-        date: new Date().toISOString().split('T')[0],
-        exerciseOrder: [...w.exerciseIds],
-        data: w.exerciseIds.reduce((acc, id) => {
-          const ex = getExData(id);
-          const isCardio = ex.type === 'cardio';
-          acc[id] = Array(3).fill(0).map(() => (
-            isCardio ? { time: '10:00', dist: '1.0' } : { weight: '0', reps: '10' }
-          ));
-          return acc;
-        }, {})
-      });
-      setSessionStartTime(now);
-      setElapsed(0);
-    };
 
     const updateSet = (exId, sIdx, field, val) => {
       const newData = { ...activeSession.data };
@@ -324,8 +329,6 @@ export default function App() {
       const newData = {...activeSession.data};
       newData[exId] = newData[exId].filter((_, i) => i !== sIdx);
       if (newData[exId].length === 0) {
-        // If last set is removed, maybe we should keep a placeholder or remove ex?
-        // Let's keep at least one empty set or handle empty gracefully.
         newData[exId] = [getExData(exId).type === 'cardio' ? { time: '0:00', dist: '0' } : { weight: '0', reps: '0' }];
       }
       setActiveSession({...activeSession, data: newData});
@@ -348,7 +351,7 @@ export default function App() {
               <Clock size={12}/> {formatTime(elapsed)}
             </div>
           </div>
-          <button onClick={() => setModal({ show: true, type: 'finish' })} className="px-4 py-2 bg-green-600 text-white rounded-xl font-bold text-sm">Finish</button>
+          <button onClick={() => setModal({ show: true, type: 'finish' })} className="px-4 py-2 bg-green-600 text-white rounded-xl font-bold text-sm shadow-md active:scale-95 transition-transform">Finish</button>
         </div>
 
         <RestTimer />
@@ -427,18 +430,18 @@ export default function App() {
                     </button>
                   </div>
                 ))}
-                <button onClick={() => addSet(exId)} className="w-full py-2 text-xs font-bold text-blue-600 bg-blue-50 rounded-xl">+ Add Set</button>
+                <button onClick={() => addSet(exId)} className="w-full py-2 text-xs font-bold text-blue-600 bg-blue-50 rounded-xl active:bg-blue-100 transition-colors">+ Add Set</button>
               </div>
             </div>
           );
         })}
 
-        <button onClick={() => setShowExPicker(true)} className="w-full py-5 border-2 border-dashed border-slate-300 text-slate-400 rounded-2xl font-bold">+ Add Exercise</button>
+        <button onClick={() => setShowExPicker(true)} className="w-full py-5 border-2 border-dashed border-slate-300 text-slate-400 rounded-2xl font-bold hover:bg-slate-100 transition-colors">+ Add Exercise</button>
 
         {modal.show && (
             <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-6 backdrop-blur-sm">
-                <div className="bg-white w-full rounded-3xl p-6 space-y-4">
-                    <h3 className="font-bold text-xl text-center">Complete Workout?</h3>
+                <div className="bg-white w-full rounded-3xl p-6 space-y-4 shadow-2xl">
+                    <h3 className="font-bold text-xl text-center text-slate-800">Complete Workout?</h3>
                     <button onClick={() => {
                          const log = { id: Date.now().toString(), workoutName: activeSession.name, date: activeSession.date, duration: formatTime(elapsed), exercises: activeSession.exerciseOrder.map(id => ({ id, sets: activeSession.data[id] })) };
                          setLogs([...logs, log]);
@@ -446,7 +449,7 @@ export default function App() {
                          setSessionStartTime(null);
                          setModal({show:false});
                          setActiveTab('home');
-                    }} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold">Save and Log</button>
+                    }} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg active:scale-95 transition-transform">Save and Log</button>
                     <button onClick={() => setModal({show:false})} className="w-full py-2 text-slate-400 font-bold text-sm">Cancel</button>
                 </div>
             </div>
@@ -457,17 +460,59 @@ export default function App() {
     return (
       <div className="p-4 space-y-4 pb-24">
         <h1 className="text-2xl font-black text-slate-800">Start Training</h1>
-        <div className="space-y-3">
-          {workouts.map(w => (
-            <button key={w.id} onClick={() => startWorkout(w)} className="w-full bg-white p-6 rounded-3xl border border-slate-100 flex justify-between items-center shadow-sm text-left active:scale-[0.98] transition-transform">
-              <div>
-                <span className="font-bold text-slate-800 text-lg block">{w.name}</span>
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{w.exerciseIds.length} Exercises</span>
-              </div>
-              <PlusCircle className="text-blue-600" size={28} />
-            </button>
-          ))}
-        </div>
+        
+        {previewWorkout ? (
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden p-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                <div className="flex justify-between items-start">
+                    <div>
+                        <h2 className="text-2xl font-black text-slate-800">{previewWorkout.name}</h2>
+                        <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">{previewWorkout.exerciseIds.length} Exercises Scheduled</p>
+                    </div>
+                    <button onClick={() => setPreviewWorkout(null)} className="p-2 bg-slate-50 text-slate-400 rounded-full hover:text-slate-600"><X size={20}/></button>
+                </div>
+
+                <div className="space-y-3">
+                    {previewWorkout.exerciseIds.map((id, idx) => {
+                        const ex = getExData(id);
+                        return (
+                            <div key={idx} className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black">
+                                    {idx + 1}
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-bold text-slate-700">{ex.name}</p>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase">{ex.group} • 3 Sets Default</p>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                <button 
+                    onClick={() => startWorkoutSession(previewWorkout)}
+                    className="w-full py-5 bg-blue-600 text-white rounded-3xl font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-blue-200 active:scale-[0.98] transition-transform"
+                >
+                    <Rocket size={24} />
+                    START WORKOUT
+                </button>
+            </div>
+        ) : (
+            <div className="space-y-3">
+                {workouts.map(w => (
+                    <button 
+                        key={w.id} 
+                        onClick={() => setPreviewWorkout(w)} 
+                        className="w-full bg-white p-6 rounded-3xl border border-slate-100 flex justify-between items-center shadow-sm text-left active:scale-[0.98] active:shadow-inner transition-all hover:border-blue-200 group"
+                    >
+                        <div>
+                            <span className="font-bold text-slate-800 text-lg block group-hover:text-blue-600 transition-colors">{w.name}</span>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{w.exerciseIds.length} Exercises</span>
+                        </div>
+                        <ChevronRight className="text-slate-200 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" size={24} />
+                    </button>
+                ))}
+            </div>
+        )}
       </div>
     );
   };
@@ -477,7 +522,7 @@ export default function App() {
     <div className="p-4 space-y-6 pb-24">
       <h1 className="text-2xl font-black text-slate-800">Settings</h1>
       <div className="bg-white rounded-3xl border border-slate-100 divide-y overflow-hidden shadow-sm">
-        <button className="w-full p-6 flex items-center gap-4 text-blue-600 font-bold text-left" onClick={() => {
+        <button className="w-full p-6 flex items-center gap-4 text-blue-600 font-bold text-left hover:bg-slate-50 transition-colors" onClick={() => {
           const fullData = { workouts, logs, customExercises };
           const blob = new Blob([JSON.stringify(fullData, null, 2)], { type: 'application/json' });
           const url = URL.createObjectURL(blob);
@@ -487,7 +532,7 @@ export default function App() {
           a.click();
         }}><Download size={20}/> Export All Data (JSON)</button>
         
-        <label className="w-full p-6 flex items-center gap-4 text-green-600 font-bold cursor-pointer">
+        <label className="w-full p-6 flex items-center gap-4 text-green-600 font-bold cursor-pointer hover:bg-slate-50 transition-colors">
           <Upload size={20}/> Import Data
           <input type="file" className="hidden" onChange={e => {
             const r = new FileReader();
@@ -497,14 +542,13 @@ export default function App() {
                 if (d.workouts) setWorkouts(d.workouts);
                 if (d.logs) setLogs(d.logs);
                 if (d.customExercises) setCustomExercises(d.customExercises);
-                alert('Import successful!');
-              } catch(err) { alert('Invalid file format'); }
+              } catch(err) { console.error('Invalid file format'); }
             };
             r.readAsText(e.target.files[0]);
           }}/>
         </label>
         
-        <button onClick={() => { if(confirm('Wipe everything?')) { localStorage.clear(); window.location.reload(); } }} className="w-full p-6 flex items-center gap-4 text-red-500 font-bold text-left"><Trash2 size={20}/> Factory Reset</button>
+        <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full p-6 flex items-center gap-4 text-red-500 font-bold text-left hover:bg-red-50 transition-colors"><Trash2 size={20}/> Factory Reset</button>
       </div>
     </div>
   );
@@ -532,7 +576,7 @@ function SetInput({ value, label, onUpdate, type = "number" }) {
   useEffect(() => { setLocalVal(value); }, [value]);
 
   return (
-    <div className="flex items-center bg-slate-50 rounded-xl px-3 border border-slate-100 flex-1">
+    <div className="flex items-center bg-slate-50 rounded-xl px-3 border border-slate-100 flex-1 hover:border-blue-200 transition-colors">
       <input 
         type={type} 
         inputMode={type === "number" ? "decimal" : "text"}
